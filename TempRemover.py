@@ -134,6 +134,7 @@ class TempRemoverApp(ctk.CTk):
 
     def setup_changelog_frame(self):
         self.changelog_text = HTMLText(self.changelog_frame, wrap="word")
+        self.changelog_text.configure(bg="#333333", borderwidth=0, highlightthickness=0)
         self.changelog_text.pack(pady=20, padx=20, fill="both", expand=True)
 
         self.changelog_text.set_html("<p>Loading changelog...</p>")
@@ -197,7 +198,11 @@ class TempRemoverApp(ctk.CTk):
             response = requests.get("https://api.github.com/repos/Rick007110/TempRemover/releases/latest")
             if response.status_code == 200:
                 data = response.json()
-                content = data.get('body', 'No changelog available.')
+                latest_version = data['tag_name']
+                if latest_version == current_version:
+                    content = "There are currently no updates"
+                else:
+                    content = data.get('body', 'No changelog available.')
             else:
                 content = 'Failed to load changelog from GitHub.'
         except Exception as e:
@@ -205,8 +210,11 @@ class TempRemoverApp(ctk.CTk):
         self.after(0, lambda: self._update_changelog(content))
 
     def _update_changelog(self, content):
-        html_content = markdown.markdown(content)
-        self.changelog_text.set_html(html_content)
+        if content == "There are currently no updates":
+            self.changelog_text.set_html('<p style="color: white;">There are currently no updates</p>')
+        else:
+            html_content = markdown.markdown(content)
+            self.changelog_text.set_html(f'<div style="color: white;">{html_content}</div>')
 
     def scan_temp(self):
         self.scan_button.configure(state="disabled")
