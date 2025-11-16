@@ -1,6 +1,5 @@
 import customtkinter as ctk
 import tkinter.messagebox
-import tkinter.simpledialog
 import os
 import tempfile
 import psutil
@@ -12,7 +11,7 @@ import urllib.request
 ctk.set_appearance_mode("System")
 ctk.set_default_color_theme("blue")
 
-current_version = "1.0"
+current_version = "1.0.2"
 
 class TempRemoverApp(ctk.CTk):
     def __init__(self):
@@ -126,14 +125,6 @@ class TempRemoverApp(ctk.CTk):
         # Load initial changelog
         self.load_changelog()
 
-        # Edit button
-        self.edit_button = ctk.CTkButton(self.changelog_frame, text="Edit Changelog", height=40, font=ctk.CTkFont(size=14), command=self.edit_changelog)
-        self.edit_button.pack(pady=10)
-
-        # Save button (hidden initially)
-        self.save_button = ctk.CTkButton(self.changelog_frame, text="Save Changelog", height=40, font=ctk.CTkFont(size=14), command=self.save_changelog)
-        # Not packed initially
-
     def change_theme(self, theme):
         ctk.set_appearance_mode(theme)
 
@@ -176,36 +167,17 @@ class TempRemoverApp(ctk.CTk):
             tkinter.messagebox.showerror("Error", f"Update download failed: {e}")
 
     def load_changelog(self):
-        changelog_file = os.path.join(os.path.dirname(__file__), "changelog.txt")
-        if os.path.exists(changelog_file):
-            with open(changelog_file, "r") as f:
-                content = f.read()
-        else:
-            content = "Changelog:\n\nVersion 1.0 - Initial release\n- Added temp file scanning and deletion\n- Modern UI with progress bar\n- Size estimation\n"
+        try:
+            response = requests.get("https://api.github.com/repos/Rick007110/TempRemover/releases/latest")
+            if response.status_code == 200:
+                data = response.json()
+                content = data.get('body', 'No changelog available.')
+            else:
+                content = 'Failed to load changelog from GitHub.'
+        except Exception as e:
+            content = f'Error loading changelog: {e}'
         self.changelog_text.delete("1.0", "end")
         self.changelog_text.insert("1.0", content)
-
-    def edit_changelog(self):
-        password = tkinter.simpledialog.askstring("Password", "Enter password to edit changelog:", show="*")
-        if password == "admin123":  # Hardcoded password, change as needed
-            self.changelog_text.configure(state="normal")
-            self.save_button.pack(pady=10)
-            self.edit_button.configure(state="disabled")
-        else:
-            tkinter.messagebox.showerror("Error", "Incorrect password")
-
-    def save_changelog(self):
-        content = self.changelog_text.get("1.0", "end").strip()
-        changelog_file = os.path.join(os.path.dirname(__file__), "changelog.txt")
-        try:
-            with open(changelog_file, "w") as f:
-                f.write(content)
-            tkinter.messagebox.showinfo("Success", "Changelog saved")
-            self.changelog_text.configure(state="disabled")
-            self.save_button.pack_forget()
-            self.edit_button.configure(state="normal")
-        except Exception as e:
-            tkinter.messagebox.showerror("Error", f"Failed to save: {e}")
 
     def scan_temp(self):
         self.scan_button.configure(state="disabled")

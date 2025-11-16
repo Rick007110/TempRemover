@@ -1,7 +1,0 @@
-Changelog:
-
-Version 1.0 - Initial release
-- Added temp file scanning and deletion
-- Modern UI with progress bar
-- Size estimation
-- Tabbed interface with Settings and Changelog
