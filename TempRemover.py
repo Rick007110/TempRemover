@@ -6,9 +6,13 @@ import tempfile
 import psutil
 import threading
 import queue
+import requests
+import urllib.request
 
 ctk.set_appearance_mode("System")
 ctk.set_default_color_theme("blue")
+
+current_version = "1.0"
 
 class TempRemoverApp(ctk.CTk):
     def __init__(self):
@@ -102,6 +106,18 @@ class TempRemoverApp(ctk.CTk):
         theme_menu = ctk.CTkOptionMenu(self.settings_frame, values=["Light", "Dark", "System"], variable=self.theme_var, command=self.change_theme, height=40, font=ctk.CTkFont(size=14))
         theme_menu.pack(pady=20)
 
+        # Version label
+        version_label = ctk.CTkLabel(self.settings_frame, text=f"Current Version: {current_version}", font=ctk.CTkFont(size=14))
+        version_label.pack(pady=20)
+
+        # Check for updates button
+        self.check_update_btn = ctk.CTkButton(self.settings_frame, text="Check for Updates", height=40, font=ctk.CTkFont(size=14), command=self.check_for_updates)
+        self.check_update_btn.pack(pady=10)
+
+        # Update button (hidden initially)
+        self.update_btn = ctk.CTkButton(self.settings_frame, text="Download Update", height=40, font=ctk.CTkFont(size=14), command=self.update_app)
+        # Not packed initially
+
     def setup_changelog_frame(self):
         # Changelog text box
         self.changelog_text = ctk.CTkTextbox(self.changelog_frame, wrap="word", state="disabled", font=ctk.CTkFont(size=12))
@@ -120,6 +136,44 @@ class TempRemoverApp(ctk.CTk):
 
     def change_theme(self, theme):
         ctk.set_appearance_mode(theme)
+
+    def check_for_updates(self):
+        try:
+            response = requests.get("https://api.github.com/repos/Rick007110/TempRemover/releases/latest")
+            if response.status_code == 200:
+                data = response.json()
+                latest_version = data['tag_name']
+                if latest_version > current_version:
+                    self.update_btn.pack(pady=10)
+                    tkinter.messagebox.showinfo("Update Available", f"Version {latest_version} is available!")
+                else:
+                    tkinter.messagebox.showinfo("Up to Date", "You have the latest version.")
+            else:
+                tkinter.messagebox.showerror("Error", "Failed to check for updates.")
+        except Exception as e:
+            tkinter.messagebox.showerror("Error", f"Update check failed: {e}")
+
+    def update_app(self):
+        try:
+            response = requests.get("https://api.github.com/repos/Rick007110/TempRemover/releases/latest")
+            if response.status_code == 200:
+                data = response.json()
+                assets = data['assets']
+                download_url = None
+                for asset in assets:
+                    if asset['name'] == 'TempRemover.exe':
+                        download_url = asset['browser_download_url']
+                        break
+                if download_url:
+                    urllib.request.urlretrieve(download_url, "TempRemover_new.exe")
+                    tkinter.messagebox.showinfo("Update Downloaded", "Downloaded to TempRemover_new.exe. Please close the app and replace the current exe with the new one.")
+                    self.update_btn.pack_forget()
+                else:
+                    tkinter.messagebox.showerror("Error", "No exe found in the latest release.")
+            else:
+                tkinter.messagebox.showerror("Error", "Failed to fetch update info.")
+        except Exception as e:
+            tkinter.messagebox.showerror("Error", f"Update download failed: {e}")
 
     def load_changelog(self):
         changelog_file = os.path.join(os.path.dirname(__file__), "changelog.txt")

@@ -10,6 +10,7 @@ A Python application with a modern Windows 11-style UI to safely delete unused t
 - Deletes only files that are not locked by running processes
 - Tabbed interface: Program, Settings, Changelog
 - Theme switching (Light/Dark/System)
+- Version display and automatic update checking/downloading from GitHub
 - Changelog management (developer access only)
 
 ## Requirements
@@ -33,7 +34,7 @@ A Python application with a modern Windows 11-style UI to safely delete unused t
 ## Usage
 
 - **Program Tab**: Main functionality - scan and delete temp files.
-- **Settings Tab**: Change appearance mode (Light, Dark, System).
+- **Settings Tab**: Change appearance mode (Light, Dark, System), view current version, check for updates, and download new versions.
 - **Changelog Tab**: View changelog; edit only with password (for developers).
 
 ## Note
