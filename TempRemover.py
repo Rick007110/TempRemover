@@ -11,11 +11,13 @@ import shutil
 import sys
 import subprocess
 import time
+import markdown
+from tkhtmlview import HTMLText
 
 ctk.set_appearance_mode("System")
 ctk.set_default_color_theme("blue")
 
-current_version = "1.0.1"
+current_version = "1.0.2"
 
 class TempRemoverApp(ctk.CTk):
     def __init__(self):
@@ -131,10 +133,10 @@ class TempRemoverApp(ctk.CTk):
         self.update_btn = ctk.CTkButton(self.settings_frame, text="Download Update", height=40, font=ctk.CTkFont(size=14), command=self.update_app)
 
     def setup_changelog_frame(self):
-        self.changelog_text = ctk.CTkTextbox(self.changelog_frame, wrap="word", state="disabled", font=ctk.CTkFont(size=12))
+        self.changelog_text = HTMLText(self.changelog_frame, wrap="word")
         self.changelog_text.pack(pady=20, padx=20, fill="both", expand=True)
 
-        self.changelog_text.insert("1.0", "Loading changelog...")
+        self.changelog_text.set_html("<p>Loading changelog...</p>")
         threading.Thread(target=self._load_changelog_worker).start()
 
     def change_theme(self, theme):
@@ -203,10 +205,8 @@ class TempRemoverApp(ctk.CTk):
         self.after(0, lambda: self._update_changelog(content))
 
     def _update_changelog(self, content):
-        self.changelog_text.configure(state="normal")
-        self.changelog_text.delete("1.0", "end")
-        self.changelog_text.insert("1.0", content)
-        self.changelog_text.configure(state="disabled")
+        html_content = markdown.markdown(content)
+        self.changelog_text.set_html(html_content)
 
     def scan_temp(self):
         self.scan_button.configure(state="disabled")
