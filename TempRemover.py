@@ -7,11 +7,12 @@ import threading
 import queue
 import requests
 import urllib.request
+import shutil
 
 ctk.set_appearance_mode("System")
 ctk.set_default_color_theme("blue")
 
-current_version = "1.0.2"
+current_version = "1.0"
 
 class TempRemoverApp(ctk.CTk):
     def __init__(self):
@@ -53,6 +54,7 @@ class TempRemoverApp(ctk.CTk):
 
         self.files_to_delete = []
         self.total_size = 0
+        self.dirs_to_delete = []
         self.queue = queue.Queue()
 
     def show_tab(self, tab_name):
@@ -79,7 +81,7 @@ class TempRemoverApp(ctk.CTk):
 
     def setup_program_frame(self):
         # Scan button
-        self.scan_button = ctk.CTkButton(self.program_frame, text="Scan Temp Folder", height=50, font=ctk.CTkFont(size=14))
+        self.scan_button = ctk.CTkButton(self.program_frame, text="Scan Temp Folder", height=50, font=ctk.CTkFont(size=14), command=self.scan_temp)
         self.scan_button.pack(pady=20)
 
         # Progress bar
@@ -92,7 +94,7 @@ class TempRemoverApp(ctk.CTk):
         self.size_label.pack(pady=20)
 
         # Delete button
-        self.delete_button = ctk.CTkButton(self.program_frame, text="Delete Temp Files", height=50, font=ctk.CTkFont(size=14), state="disabled")
+        self.delete_button = ctk.CTkButton(self.program_frame, text="Delete Temp Files", height=50, font=ctk.CTkFont(size=14), state="disabled", command=self.confirm_delete)
         self.delete_button.pack(pady=20)
 
     def setup_settings_frame(self):
@@ -123,7 +125,8 @@ class TempRemoverApp(ctk.CTk):
         self.changelog_text.pack(pady=20, padx=20, fill="both", expand=True)
 
         # Load initial changelog
-        self.load_changelog()
+        self.changelog_text.insert("1.0", "Loading changelog...")
+        threading.Thread(target=self._load_changelog_worker).start()
 
     def change_theme(self, theme):
         ctk.set_appearance_mode(theme)
@@ -166,7 +169,7 @@ class TempRemoverApp(ctk.CTk):
         except Exception as e:
             tkinter.messagebox.showerror("Error", f"Update download failed: {e}")
 
-    def load_changelog(self):
+    def _load_changelog_worker(self):
         try:
             response = requests.get("https://api.github.com/repos/Rick007110/TempRemover/releases/latest")
             if response.status_code == 200:
@@ -176,36 +179,41 @@ class TempRemoverApp(ctk.CTk):
                 content = 'Failed to load changelog from GitHub.'
         except Exception as e:
             content = f'Error loading changelog: {e}'
+        self.after(0, lambda: self._update_changelog(content))
+
+    def _update_changelog(self, content):
+        self.changelog_text.configure(state="normal")
         self.changelog_text.delete("1.0", "end")
         self.changelog_text.insert("1.0", content)
+        self.changelog_text.configure(state="disabled")
 
     def scan_temp(self):
         self.scan_button.configure(state="disabled")
         self.delete_button.configure(state="disabled")
+        self.progress_bar.configure(mode="indeterminate")
         self.progress_bar.pack(pady=10)
-        self.progress_bar.set(0)
+        self.progress_bar.start()
         self.size_label.configure(text="Scanning...")
         thread = threading.Thread(target=self._scan_worker)
         thread.start()
-        self.check_queue()
+        # Wait for done
+        self._wait_for_scan()
 
-    def check_queue(self):
+    def _wait_for_scan(self):
         try:
-            while True:
-                msg = self.queue.get_nowait()
-                if msg[0] == 'progress':
-                    self.progress_bar.set(msg[1])
-                elif msg[0] == 'done':
-                    self._scan_done(msg[1], msg[2])
-                    return
+            msg = self.queue.get_nowait()
+            if msg[0] == 'done':
+                self._scan_done(msg[1], msg[2])
+                return
         except queue.Empty:
             pass
-        self.after(100, self.check_queue)
+        self.after(100, self._wait_for_scan)
 
     def _scan_worker(self):
         try:
             temp_dir = tempfile.gettempdir()
             self.files_to_delete = []
+            self.dirs_to_delete = []
             self.total_size = 0
 
             # Collect all open file paths first for faster checking
@@ -221,19 +229,9 @@ class TempRemoverApp(ctk.CTk):
                 # If can't collect, proceed without checking
                 open_files = set()
 
-            # First, count total files
-            total_files = 0
-            for root, dirs, files in os.walk(temp_dir):
-                total_files += len(files)
-
-            if total_files == 0:
-                self.queue.put(('done', True, None))
-                return
-
-            processed = 0
-            for root, dirs, files in os.walk(temp_dir):
-                for file in files:
-                    path = os.path.join(root, file)
+            for item in os.listdir(temp_dir):
+                path = os.path.join(temp_dir, item)
+                if os.path.isfile(path):
                     if path not in open_files:
                         try:
                             size = os.path.getsize(path)
@@ -241,17 +239,18 @@ class TempRemoverApp(ctk.CTk):
                             self.files_to_delete.append(path)
                         except OSError:
                             pass
-                    processed += 1
-                    progress = processed / total_files
-                    self.queue.put(('progress', progress))
+                elif os.path.isdir(path):
+                    self.dirs_to_delete.append(path)
 
             self.queue.put(('done', True, None))
         except Exception as e:
             self.queue.put(('done', False, str(e)))
 
     def _scan_done(self, success, error):
-        self.scan_button.configure(state="normal")
+        self.progress_bar.stop()
+        self.progress_bar.configure(mode="determinate")
         self.progress_bar.pack_forget()
+        self.scan_button.configure(state="normal")
         if success:
             size_mb = self.total_size / (1024 * 1024)
             size_gb = size_mb / 1024
@@ -263,26 +262,42 @@ class TempRemoverApp(ctk.CTk):
             tkinter.messagebox.showerror("Scan Error", f"An error occurred during scan: {error}")
 
     def confirm_delete(self):
-        if tkinter.messagebox.askyesno("Confirm Deletion", f"Are you sure you want to delete {len(self.files_to_delete)} temp files?\nSize: {self.total_size / (1024 * 1024):.2f} MB"):
+        if tkinter.messagebox.askyesno("Confirm Deletion", f"Are you sure you want to delete {len(self.files_to_delete)} temp files and {len(self.dirs_to_delete)} temp folders?\nSize: {self.total_size / (1024 * 1024):.2f} MB"):
             self.delete_files()
 
     def delete_files(self):
-        deleted_count = 0
-        failed_count = 0
+        deleted_files = 0
+        failed_files = 0
+        deleted_dirs = 0
+        failed_dirs = 0
         for path in self.files_to_delete:
             try:
                 os.remove(path)
-                deleted_count += 1
+                deleted_files += 1
             except OSError:
-                failed_count += 1
+                failed_files += 1
 
-        if failed_count > 0:
-            tkinter.messagebox.showwarning("Deletion Warning", f"Deleted {deleted_count} files. {failed_count} files could not be deleted.")
+        for path in self.dirs_to_delete:
+            try:
+                shutil.rmtree(path)
+                deleted_dirs += 1
+            except OSError:
+                failed_dirs += 1
+
+        messages = []
+        if deleted_files > 0 or failed_files > 0:
+            messages.append(f"Files: Deleted {deleted_files}, failed {failed_files}")
+        if deleted_dirs > 0 or failed_dirs > 0:
+            messages.append(f"Folders: Deleted {deleted_dirs}, failed {failed_dirs}")
+
+        if failed_files > 0 or failed_dirs > 0:
+            tkinter.messagebox.showwarning("Deletion Warning", "\n".join(messages))
         else:
-            tkinter.messagebox.showinfo("Deletion Complete", f"Successfully deleted {deleted_count} temp files.")
+            tkinter.messagebox.showinfo("Deletion Complete", "\n".join(messages))
         self.size_label.configure(text="Size to delete: 0 MB (0.00 GB)")
         self.delete_button.configure(state="disabled")
         self.files_to_delete = []
+        self.dirs_to_delete = []
         self.total_size = 0
 
 if __name__ == "__main__":
