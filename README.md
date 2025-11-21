@@ -27,9 +27,10 @@ A Python application with a modern Windows 11-style UI to safely delete unused t
 3. Run the application: `python TempRemover.py`
 
 ### Standalone Executable (No Python Required):
-1. Download the `TempRemover.exe` file from the `dist` folder.
+1. Download the `TempRemover.exe` file from the latest [release](https://github.com/Rick007110/TempRemover/releases/latest).
 2. Double-click `TempRemover.exe` to run the application directly on Windows.
-3. Share the exe with friends without needing Python or packages installed.
+3. Make sure to click `More Info` and then `Run anyway`. Windows defender (and possibly other AV's) show this program as a virus (which is a false positive) which is because of the way the python code gets bundled with PyInstaller.
+4. Share the exe with friends without needing Python or packages installed.
 
 ## Usage
 
@@ -40,3 +41,8 @@ A Python application with a modern Windows 11-style UI to safely delete unused t
 ## Note
 
 This application only deletes files that are not currently open by any process. It does not delete directories or subfolders.
+
+## To do
+
+- [ ] Make the changelog view work better
+- [ ] Make the background dark grey
