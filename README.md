@@ -46,3 +46,4 @@ This application only deletes files that are not currently open by any process. 
 
 - [ ] Make the changelog view work better
 - [ ] Make the background dark grey
+- [ ] Blacklist files that are needed by TempRemover from being deleted in temp folder
